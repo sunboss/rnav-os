@@ -1,0 +1,35 @@
+# R导航 Dockerfile
+# 前端由 web-src/ 单独构建，产物在 web/ 目录
+
+# build backend
+FROM golang:1.21-alpine3.18 AS server_image
+
+WORKDIR /build
+
+COPY ./service .
+
+RUN apk add --no-cache bash curl gcc git musl-dev python3 && \
+    go env -w GO111MODULE=on GOPROXY=https://goproxy.cn,direct && \
+    export PATH=$PATH:/go/bin && \
+    go install github.com/go-bindata/go-bindata/...@latest && \
+    go install github.com/elazarl/go-bindata-assetfs/...@latest && \
+    go-bindata-assetfs -o=assets/bindata.go -pkg=assets assets/... && \
+    # 修复 go-bindata-assetfs 换行符转义问题
+    python3 -c "open('assets/bindata.go','w').write(open('assets/bindata.go').read().replace('\\\\n','\n'))" 2>/dev/null || true && \
+    go build -o rnav --ldflags="-s -w -X sun-panel/global.RUNCODE=release -X sun-panel/global.ISDOCKER=docker" .
+
+# run
+FROM alpine
+
+WORKDIR /app
+
+COPY --from=server_image /build/rnav /app/rnav
+COPY ./web /app/web
+
+EXPOSE 3002
+
+RUN apk add --no-cache bash ca-certificates su-exec tzdata && \
+    chmod +x ./rnav && \
+    ./rnav -config
+
+CMD ./rnav

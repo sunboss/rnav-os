@@ -1,0 +1,30 @@
+version: "3.8"
+
+services:
+  rnav:
+    build:
+      context: .
+      dockerfile: Dockerfile.rnav
+    image: rnav:latest
+    container_name: rnav
+    restart: unless-stopped
+    volumes:
+      - ./data/conf:/app/conf
+      - ./data/database.db:/app/database.db
+      - ./data/uploads:/app/uploads
+      - ./data/files:/app/files
+    environment:
+      - TZ=Asia/Shanghai
+    labels:
+      - "traefik.enable=true"
+      # 生产切换时取消注释并修改域名
+      # - "traefik.http.routers.rnav.rule=Host(`home.1234r.com`)"
+      # - "traefik.http.routers.rnav.entrypoints=websecure"
+      # - "traefik.http.routers.rnav.tls.certresolver=myresolver"
+      # - "traefik.http.services.rnav.loadbalancer.server.port=3002"
+    networks:
+      - rnav-net
+
+networks:
+  rnav-net:
+    driver: bridge
